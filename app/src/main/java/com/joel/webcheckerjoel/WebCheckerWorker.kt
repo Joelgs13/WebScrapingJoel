@@ -22,42 +22,23 @@ class WebCheckerWorker(appContext: Context, workerParams: WorkerParameters) : Wo
             if (isStopped || semaforo.equals("R")) {
                 println("stopped")
                 return Result.failure()
-            }
 
+            }
             // Obtener la URL y la palabra desde las preferencias compartidas
             val url = sharedPreferences.getString("url", null) ?: return Result.failure()
             val word = sharedPreferences.getString("word", null) ?: return Result.failure()
             if (isStopped || semaforo.equals("R")) {
                 return Result.failure()
             }
-
             // Conectar a la página web
             val doc = Jsoup.connect(url).get()
             if (isStopped || semaforo.equals("R")) {
                 return Result.failure()
             }
 
-            // Extraer el texto de la página
-            val textoPagina = doc.text()
-
-            // Contar las ocurrencias de la palabra en el texto de la página (ignorando mayúsculas/minúsculas)
-            val contarOcurrencias = Regex(Regex.escape(word), RegexOption.IGNORE_CASE).findAll(textoPagina).count()
-
-            // Si encontramos la palabra, actualizamos el contador
-            if (contarOcurrencias > 0) {
-                // Obtener el contador actual de veces que se encontró la palabra
-                val currentCount = sharedPreferences.getInt("word_count", 0)
-                val newCount = currentCount + contarOcurrencias
-                val lastFoundDate = System.currentTimeMillis()
-
-                // Guardar el nuevo contador y la fecha
-                sharedPreferences.edit().apply {
-                    putInt("word_count", newCount)
-                    putLong("last_found_date", lastFoundDate)
-                    apply()
-                }
-
-                sendNotification(newCount, lastFoundDate)
+            // Verificar si la palabra está presente
+            if (doc.text().contains(word, ignoreCase = true)) {
+                sendNotification()
             }
 
         } catch (e: Exception) {
@@ -68,11 +49,17 @@ class WebCheckerWorker(appContext: Context, workerParams: WorkerParameters) : Wo
         return Result.success()
     }
 
-    private fun sendNotification(count: Int, lastFoundDate: Long) {
+    /**
+     * Envía una notificación al usuario si se encuentra la palabra en la página web.
+     *
+     * <p>La notificación se muestra con el título "¡Se encontró la palabra!"
+     * y un mensaje que indica que la palabra fue encontrada.</p>
+     */
+    private fun sendNotification() {
         val context = applicationContext
 
         // Crear el canal de notificación (solo necesario para API 26+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 "guestlist_channel",
                 "Guestlist Notification",
@@ -80,17 +67,14 @@ class WebCheckerWorker(appContext: Context, workerParams: WorkerParameters) : Wo
             ).apply {
                 description = "Canal para notificaciones de palabras encontradas"
             }
-
             val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.createNotificationChannel(channel)
         }
 
-        val ultimaFechaFormateada = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(lastFoundDate)
-
         // Crear y enviar la notificación
         val notification: Notification = NotificationCompat.Builder(context, "guestlist_channel")
             .setContentTitle("¡Se encontró la palabra!")
-            .setContentText("La palabra fue encontrada $count veces. Última vez: $ultimaFechaFormateada")
+            .setContentText("La palabra fue encontrada en la página web.")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
