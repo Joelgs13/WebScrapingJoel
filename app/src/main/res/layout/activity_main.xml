@@ -26,7 +26,7 @@
             android:textColor="@color/white"/>
 
         <EditText
-            android:id="@+id/editTextText"
+            android:id="@+id/URL"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:ems="10"
@@ -35,7 +35,7 @@
             android:hint="Inserta aquí la URL" />
 
         <EditText
-            android:id="@+id/editTextText2"
+            android:id="@+id/FINDTEXT"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:ems="10"
