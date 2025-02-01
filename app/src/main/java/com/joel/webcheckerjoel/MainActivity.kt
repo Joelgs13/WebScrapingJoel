@@ -21,6 +21,13 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkInfo
 import java.util.UUID
 
+/**
+ * Actividad principal de la aplicación WebChecker.
+ *
+ * <p>Esta actividad maneja la lógica para interactuar con el usuario, incluyendo los botones
+ * para iniciar y detener un trabajo periódico que verifica una URL, así como la captura de entradas
+ * de texto para la URL y la palabra clave.</p>
+ */
 class MainActivity : AppCompatActivity() {
 
     // Etiqueta única para identificar los trabajos programados
@@ -28,16 +35,18 @@ class MainActivity : AppCompatActivity() {
 
     // ID del trabajo en ejecución, generado dinámicamente
     private var workId = UUID.randomUUID()
-    private var semaforo="R"
+
+    // Semáforo para gestionar el estado de los trabajos
+    private var semaforo = "R"
 
     /**
-     * Método que se ejecuta al crear la actividad.
+     * Metodo de creación de la actividad.
      *
-     * <p>Configura los permisos necesarios, inicializa las vistas y configura los listeners
-     * para los botones de inicio y parada de la tarea de fondo. También permite al usuario
-     * introducir dinámicamente la URL y la palabra clave mediante campos de texto.</p>
+     * <p>Este metodo se ejecuta cuando la actividad se crea, inicializando las vistas,
+     * configurando los botones y los campos de texto, y registrando los listeners para
+     * manejar los eventos de clic y cambios en los textos.</p>
      *
-     * @param savedInstanceState Estado previamente guardado de la actividad (si lo hay).
+     * @param savedInstanceState Estado guardado de la actividad, si está disponible.
      */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,11 +69,14 @@ class MainActivity : AppCompatActivity() {
 
         // Listener para el botón "Play"
         btnPlay.setOnClickListener {
-            this.semaforo="V"
+            this.semaforo = "V"
             val sharedPreferences = getSharedPreferences("WebCheckerPrefs", MODE_PRIVATE)
             sharedPreferences.edit().putString("semaforo", semaforo).apply()
 
+            // Cancelar cualquier trabajo previamente encolado con la misma etiqueta
             WorkManager.getInstance(this).cancelAllWorkByTag(this.workTag)
+
+            // Crear una solicitud de trabajo periódico
             val workRequest = PeriodicWorkRequestBuilder<WebCheckerWorker>(
                 15, // Intervalo mínimo de 15 minutos
                 TimeUnit.MINUTES
@@ -80,10 +92,11 @@ class MainActivity : AppCompatActivity() {
         // Listener para el botón "Stop"
         btnStop.setOnClickListener {
             println("Pulso boton stop")
-            this.semaforo="R"
+            this.semaforo = "R"
             val sharedPreferences = getSharedPreferences("WebCheckerPrefs", MODE_PRIVATE)
             sharedPreferences.edit().putString("semaforo", semaforo).apply()
 
+            // Detener el trabajo en ejecución
             stopWork()
         }
 
@@ -98,6 +111,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun afterTextChanged(s: Editable?) {
+                // Guardar la URL ingresada en las preferencias compartidas
                 val url = s.toString()
                 val sharedPreferences = getSharedPreferences("WebCheckerPrefs", MODE_PRIVATE)
                 sharedPreferences.edit().putString("url", url).apply()
@@ -116,6 +130,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun afterTextChanged(s: Editable?) {
+                // Guardar la palabra clave ingresada en las preferencias compartidas
                 val word = s.toString()
                 val sharedPreferences = getSharedPreferences("WebCheckerPrefs", MODE_PRIVATE)
                 sharedPreferences.edit().putString("word", word).apply()
@@ -125,19 +140,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Método para detener la tarea de fondo y cerrar la aplicación.
+     * Metodo para detener la tarea de fondo y cancelar los trabajos en ejecución.
      *
-     * <p>Este método cancela todos los trabajos asociados con la etiqueta o el ID
-     * almacenado. También finaliza la aplicación de manera controlada.</p>
+     * <p>Este metodo cancela todos los trabajos asociados con la etiqueta o el ID
+     * almacenado. Además, limpia los trabajos pendientes de ejecución.</p>
      */
     private fun stopWork() {
-        // Cancelar trabajos asociados con la etiqueta
-        //WorkManager.getInstance(this).cancelAllWorkByTag(this.workTag)
-
         // Cancelar trabajos específicos por ID
         WorkManager.getInstance(this).cancelWorkById(this.workId)
-        //WorkManager.getInstance(this).cancelAllWork()
+
+        // Limpiar trabajos completados o fallidos
         WorkManager.getInstance(this).pruneWork()
+
+        // Obtener los trabajos asociados con la etiqueta y cancelarlos si están encolados o en ejecución
         WorkManager.getInstance(this).getWorkInfosByTag(workTag).get().forEach { workInfo ->
             println("Trabajo ID: ${workInfo.id}, Estado: ${workInfo.state}")
 
@@ -147,7 +162,5 @@ class MainActivity : AppCompatActivity() {
                 println("Trabajo con ID ${workInfo.id} cancelado")
             }
         }
-
-
     }
 }
