@@ -9,8 +9,6 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkManager
-import com.joel.webcheckerjoel.R
-import com.joel.webcheckerjoel.WebCheckerWorker
 import java.util.concurrent.TimeUnit
 import android.Manifest
 import android.content.Context
@@ -39,15 +37,6 @@ class MainActivity : AppCompatActivity() {
     // Semáforo para gestionar el estado de los trabajos
     private var semaforo = "R"
 
-    /**
-     * Metodo de creación de la actividad.
-     *
-     * <p>Este metodo se ejecuta cuando la actividad se crea, inicializando las vistas,
-     * configurando los botones y los campos de texto, y registrando los listeners para
-     * manejar los eventos de clic y cambios en los textos.</p>
-     *
-     * @param savedInstanceState Estado guardado de la actividad, si está disponible.
-     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -67,11 +56,52 @@ class MainActivity : AppCompatActivity() {
         val btnPlay = findViewById<Button>(R.id.play)
         val btnStop = findViewById<Button>(R.id.parar)
 
+        // Deshabilitar el botón "Play" al inicio
+        btnPlay.isEnabled = false
+
+        // Función para verificar si ambos campos tienen texto
+        fun checkFields() {
+            val urlText = urlField.text.toString().trim()
+            val wordText = wordField.text.toString().trim()
+            btnPlay.isEnabled = urlText.isNotEmpty() && wordText.isNotEmpty()
+        }
+
+        // Agregar TextWatcher a ambos campos
+        val textWatcher = object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                checkFields()
+            }
+
+            override fun afterTextChanged(s: Editable?) {}
+        }
+
+        // Asignar el mismo TextWatcher a ambos campos
+        urlField.addTextChangedListener(textWatcher)
+        wordField.addTextChangedListener(textWatcher)
+
         // Listener para el botón "Play"
         btnPlay.setOnClickListener {
             this.semaforo = "V"
             val sharedPreferences = getSharedPreferences("WebCheckerPrefs", MODE_PRIVATE)
-            sharedPreferences.edit().putString("semaforo", semaforo).apply()
+
+            // Obtener la URL y la palabra clave guardadas
+            val url = urlField.text.toString().trim()
+            val word = wordField.text.toString().trim()
+
+            // Verifica que ambos valores sean correctos antes de guardarlos
+            if (url.isEmpty() || word.isEmpty()) {
+                println("Error: URL o palabra clave vacías. No se inicia el servicio.")
+                return@setOnClickListener
+            }
+
+            // Guardar los valores en SharedPreferences correctamente
+            sharedPreferences.edit()
+                .putString("url", url)
+                .putString("word", word)
+                .putString("semaforo", semaforo)
+                .apply()
 
             // Cancelar cualquier trabajo previamente encolado con la misma etiqueta
             WorkManager.getInstance(this).cancelAllWorkByTag(this.workTag)
@@ -89,6 +119,7 @@ class MainActivity : AppCompatActivity() {
             this.workId = workRequest.id
         }
 
+
         // Listener para el botón "Stop"
         btnStop.setOnClickListener {
             println("Pulso boton stop")
@@ -99,50 +130,12 @@ class MainActivity : AppCompatActivity() {
             // Detener el trabajo en ejecución
             stopWork()
         }
-
-        // Listener para capturar cambios en el campo de texto de la URL
-        urlField.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
-                // No se realiza ninguna acción antes del cambio de texto
-            }
-
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                // Se puede manejar el texto mientras cambia (opcional)
-            }
-
-            override fun afterTextChanged(s: Editable?) {
-                // Guardar la URL ingresada en las preferencias compartidas
-                val url = s.toString()
-                val sharedPreferences = getSharedPreferences("WebCheckerPrefs", MODE_PRIVATE)
-                sharedPreferences.edit().putString("url", url).apply()
-                println("URL ingresada: $url")
-            }
-        })
-
-        // Listener para capturar cambios en el campo de texto de la palabra clave
-        wordField.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
-                // No se realiza ninguna acción antes del cambio de texto
-            }
-
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                // Se puede manejar el texto mientras cambia (opcional)
-            }
-
-            override fun afterTextChanged(s: Editable?) {
-                // Guardar la palabra clave ingresada en las preferencias compartidas
-                val word = s.toString()
-                val sharedPreferences = getSharedPreferences("WebCheckerPrefs", MODE_PRIVATE)
-                sharedPreferences.edit().putString("word", word).apply()
-                println("Palabra ingresada: $word")
-            }
-        })
     }
 
     /**
-     * Metodo para detener la tarea de fondo y cancelar los trabajos en ejecución.
+     * Método para detener la tarea de fondo y cancelar los trabajos en ejecución.
      *
-     * <p>Este metodo cancela todos los trabajos asociados con la etiqueta o el ID
+     * <p>Este método cancela todos los trabajos asociados con la etiqueta o el ID
      * almacenado. Además, limpia los trabajos pendientes de ejecución.</p>
      */
     private fun stopWork() {
